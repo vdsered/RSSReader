@@ -1,28 +1,35 @@
 package com.companyname.rssreader;
 
-import android.util.Xml;
-
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.net.URLConnection;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import io.reactivex.Observable;
+import io.reactivex.annotations.NonNull;
 
 import static android.util.Xml.newPullParser;
+/*
+    TODO
+    The implementation is blocking. We need two or more threads to read from more than one different
+    sources at the same time. In the current case it's okay, because we have only
+    two sources(not that many). However, should Retrofit/Java NIO be used or something like that?
+ */
+public final class RSS2DataSource implements FeedDataSource {
 
-public final class RSS2DataSource {
-    private final String link;
-    public RSS2DataSource(String link) {
+    public RSS2DataSource(@NonNull String link) {
         this.link = link;
     }
 
-    public Observable<RSS2Item> retrieveItemsSince(long timestamp, int count) {
+    @Override
+    public Observable<FeedEntry> retrieveEntriesSince(long timestamp, int count) {
         return Observable.create(emitter -> {
             URL url;
             InputStream inputStream = null;
@@ -35,8 +42,8 @@ public final class RSS2DataSource {
                 final String inputEncoding = null;
                 parser.setInput(inputStream, inputEncoding);
 
-                final List<RSS2Item> items = readItemElements(parser, count, timestamp);
-                for(final RSS2Item item : items)
+                final List<FeedEntry> items = retrieveEntriesSince(parser, count, timestamp);
+                for(final FeedEntry item : items)
                     emitter.onNext(item);
             }
             catch (Exception ex)
@@ -60,65 +67,113 @@ public final class RSS2DataSource {
 
         See https://validator.w3.org/feed/docs/rss2.html
      */
-    private List<RSS2Item> readItemElements(XmlPullParser parser, int count, long timestamp)
-            throws IOException, XmlPullParserException {
-        final ArrayList<RSS2Item> items = new ArrayList<>(count);
+    private List<FeedEntry> retrieveEntriesSince(XmlPullParser parser, int count, long timestamp)
+            throws IOException, XmlPullParserException, ParseException {
+        final ArrayList<FeedEntry> items = new ArrayList<>(count);
 
-        parser.nextTag();
-        boolean isItemElement = false;
+        skipUntilFirstItem(parser);
+
+        boolean isParsingItemSubelement = true;
         String title = null;
         String description = null;
         String pubDate = null;
-        while (parser.next() != XmlPullParser.END_DOCUMENT) {
+        String elementName = null;
+        do {
             int eventType = parser.getEventType();
 
-            String name = parser.getName();
-            if(name == null)
-                continue;
-
             if(eventType == XmlPullParser.END_TAG) {
-                if(name.equalsIgnoreCase("item")) {
-                    isItemElement = false;
+                if(elementName != null && elementName.equalsIgnoreCase("item")) {
+                    isParsingItemSubelement = false;
                 }
                 continue;
             }
 
             if (eventType == XmlPullParser.START_TAG) {
-                if(name.equalsIgnoreCase("item")) {
-                    isItemElement = true;
+                elementName = parser.getName();
+                if(elementName != null && elementName.equalsIgnoreCase("item")) {
+                    isParsingItemSubelement = true;
                 }
                 continue;
             }
-
-            String text = "";
-            if (parser.next() == XmlPullParser.TEXT) {
+            String text;
+            if (eventType == XmlPullParser.TEXT) {
                 text = parser.getText();
-                parser.nextTag();
+
+                text = text.trim();
+
+                if(text.isEmpty())
+                    continue;
+
+                if(elementName.equalsIgnoreCase("title")) {
+                    title = text;
+                }
+                else if (elementName.equalsIgnoreCase("description")) {
+                    description = text;
+                }
+                else if (elementName.equalsIgnoreCase("pubDate")) {
+                    pubDate = text;
+                }
             }
 
-            if (name.equalsIgnoreCase("title")) {
-                title = text;
-            }
-            else if (name.equalsIgnoreCase("description")) {
-                description = text;
-            }
-            else if (name.equalsIgnoreCase("pubDate")) {
-                pubDate = text;
-            }
-
-            if(!isItemElement)
+            if(!isParsingItemSubelement)
                 continue;
 
             if (title != null && pubDate != null && description != null) {
-                final RSS2Item item = new RSS2Item(description, title, pubDate);
+
+                final long publicationTimestamp = parsePubDate(pubDate);
+
+                /*
+                    TODO
+                    We need another way to ignore entries that we have already downloaded
+                 */
+                if(timestamp <= publicationTimestamp)
+                    continue;
+                if(count < items.size() + 1)
+                    return items;
+
+                final FeedEntry item = new FeedEntry(description, title, publicationTimestamp);
                 items.add(item);
+
 
                 title = null;
                 pubDate = null;
                 description = null;
-                isItemElement = false;
+                isParsingItemSubelement = false;
             }
-        }
+        } while(parser.next() != XmlPullParser.END_DOCUMENT);
         return items;
     }
+
+    private void skipDocumentStart(XmlPullParser parser)
+            throws IOException, XmlPullParserException {
+        parser.nextTag();
+    }
+
+    private void skipUntilFirstItem(XmlPullParser parser)
+            throws IOException, XmlPullParserException {
+        skipDocumentStart(parser);
+        String elementName;
+        while (parser.next() != XmlPullParser.END_DOCUMENT)
+        {
+            elementName = parser.getName();
+            if(elementName == null)
+                continue;
+
+            if(elementName.equalsIgnoreCase("item"))
+                break;
+        }
+    }
+
+    /*
+        NOTE: A pubDate element of RSS 2.0 contains a date represented by RFC 822 by definition.
+
+        See https://validator.w3.org/feed/docs/rss2.html
+     */
+    private long parsePubDate(String pubDate) throws ParseException {
+        return format.parse(pubDate).getTime();
+    }
+
+    private final SimpleDateFormat format =
+            new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US);
+    private final String link;
 }
