@@ -1,13 +1,13 @@
 package com.companyname.rssreader;
 
-public final class RSS2Item {
+public final class FeedEntry {
     public final String description;
     public final String title;
-    public final String pubDate;
+    public final long timestamp;
 
-    public RSS2Item(String description, String title, String pubDate) {
+    public FeedEntry(String description, String title, long timestamp) {
         this.description = description;
         this.title = title;
-        this.pubDate = pubDate;
+        this.timestamp = timestamp;
     }
 }
