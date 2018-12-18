@@ -2,6 +2,7 @@ package com.companyname.rssreader;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
@@ -9,6 +10,7 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import java.util.Arrays;
+import java.util.List;
 
 import io.reactivex.disposables.Disposable;
 
@@ -22,37 +24,22 @@ public final class MixedFeedActivity extends AppCompatActivity implements FeedVi
         loading = findViewById(R.id.loading);
         newsAdapter = new NewsAdapter(this);
         feed.setAdapter(newsAdapter);
-        final LinearLayoutManager feedLayoutManager =
-                new LinearLayoutManager(this);
+        final LinearLayoutManager feedLayoutManager = new LinearLayoutManager(this);
         feed.setLayoutManager(feedLayoutManager);
-        newsRepository =
-                new NewsRepository(new RSS2DataSource("https://meduza.io/rss/podcasts/meduza-v-kurse"),
-                                   new RSS2DataSource("https://habr.com/rss/hubs/all/"));
+        final DividerItemDecoration decoration =
+                new DividerItemDecoration(feed.getContext(), DividerItemDecoration.VERTICAL);
+        feed.addItemDecoration(decoration);
+        final RSS2DataSource habr =
+                new RSS2DataSource("https://habr.com/rss/hubs/all/");
+        final RSS2DataSource meduza =
+                new RSS2DataSource("https://meduza.io/rss/podcasts/meduza-v-kurse");
+        newsRepository = new NewsRepository(meduza, habr);
         feedPresenter = new FeedPresenter(newsRepository, this);
 
-        feed.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView, dx, dy);
-                int visibleItemCount = feedLayoutManager.getChildCount();
-                int totalItemCount = feedLayoutManager.getItemCount();
-                int firstVisibleItemPosition = feedLayoutManager.findFirstVisibleItemPosition();
-
-                if (isLoading)
-                    return;
-
-                final boolean atLeastOneIsVisible =
-                        firstVisibleItemPosition >= 0;
-                final boolean latestItemIsReached =
-                        (visibleItemCount + firstVisibleItemPosition) >= totalItemCount;
-                if (latestItemIsReached &&
-                    atLeastOneIsVisible &&
-                    totalItemCount >= FEED_PAGE_SIZE) {
-                    feedPresenter
-                            .onNeedMoreNews(FEED_PAGE_SIZE, newsAdapter.getEarliestTimestamp());
-                }
-            }
-        });
+        final NewsShortageListener shortageListener =
+                new NewsShortageListener(this, feedLayoutManager,
+                                        feedPresenter, newsAdapter);
+        feed.addOnScrollListener(shortageListener);
 
         feedPresenter.initialize(FEED_PAGE_SIZE);
     }
@@ -80,13 +67,18 @@ public final class MixedFeedActivity extends AppCompatActivity implements FeedVi
     }
 
     @Override
+    public void setDefaultNewsImages(List<Logo> logos) {
+        newsAdapter.setLogos(logos);
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         feedPresenter.clear();
     }
 
-    private static final int FEED_PAGE_SIZE = 8;
-    private boolean isLoading;
+    static final int FEED_PAGE_SIZE = 8;
+    boolean isLoading;
 
     private ProgressBar loading;
 
@@ -97,4 +89,5 @@ public final class MixedFeedActivity extends AppCompatActivity implements FeedVi
 
     private Disposable disposable;
     private NewsRepository newsRepository;
+
 }
