@@ -4,6 +4,7 @@ import android.util.Log;
 
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.disposables.Disposables;
 import io.reactivex.schedulers.Schedulers;
 
 public final class FeedPresenter {
@@ -14,6 +15,11 @@ public final class FeedPresenter {
     }
 
     public void initialize(int initialFeedEntryCount) {
+        newsRepository
+                .retrieveLogos()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(logos -> view.setDefaultNewsImages(logos),
+                        error -> view.showErrorMessage());
         loadMoreNews(initialFeedEntryCount, System.currentTimeMillis());
     }
 
