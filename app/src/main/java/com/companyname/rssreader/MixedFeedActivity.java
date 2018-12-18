@@ -87,7 +87,6 @@ public final class MixedFeedActivity extends AppCompatActivity implements FeedVi
     private NewsAdapter newsAdapter;
     private RecyclerView feed;
 
-    private Disposable disposable;
     private NewsRepository newsRepository;
 
 }
