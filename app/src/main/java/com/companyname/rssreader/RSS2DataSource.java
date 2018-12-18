@@ -5,6 +5,7 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 
 import io.reactivex.Observable;
+import io.reactivex.Single;
 import io.reactivex.annotations.NonNull;
 
 import static android.util.Xml.newPullParser;
@@ -22,10 +24,70 @@ import static android.util.Xml.newPullParser;
     sources at the same time. In the current case it's okay, because we have only
     two sources(not that many). However, should Retrofit/Java NIO be used or something like that?
  */
+/*
+    TODO
+    The implementation re-reads the source from the beginning each time it is required to load
+    more entries. We could possibly to use offsets to skip the data that are already on board.
+    The offset may be sort of a position where another page starts.
+ */
 public final class RSS2DataSource implements FeedDataSource {
 
     public RSS2DataSource(@NonNull String link) {
         this.link = link;
+        this.host = getHost(link);
+    }
+
+    @Override
+    public Single<Logo> getLogo() {
+        return Single.create(emitter -> {
+            URL url;
+            InputStream inputStream = null;
+            try
+            {
+                url = new URL(link);
+                inputStream = url.openStream();
+
+                final XmlPullParser parser = newPullParser();
+                final String inputEncoding = null;
+                parser.setInput(inputStream, inputEncoding);
+
+                String elementName;
+                while (parser.next() != XmlPullParser.END_DOCUMENT)
+                {
+                    elementName = parser.getName();
+                    if(elementName == null)
+                        continue;
+
+                    if(elementName.equalsIgnoreCase("image"))
+                        break;
+                }
+                String logoUrl = "";
+                while (parser.next() != XmlPullParser.END_DOCUMENT)
+                {
+                    elementName = parser.getName();
+                    if(elementName == null)
+                        continue;
+
+                    if(elementName.equalsIgnoreCase("url")) {
+                        parser.next();
+                        logoUrl = parser.getText();
+                        break;
+                    }
+                }
+
+                emitter.onSuccess(new Logo(logoUrl, host));
+            }
+            catch (Exception ex)
+            {
+                emitter.onError(ex);
+            }
+            finally
+            {
+                if (inputStream != null) {
+                    inputStream.close();
+                }
+            }
+        });
     }
 
     @Override
@@ -124,14 +186,15 @@ public final class RSS2DataSource implements FeedDataSource {
 
                 /*
                     TODO
-                    We need another way to ignore entries that we have already downloaded
+                    We need another way to ignore entries that we have already downloaded.
+                    For instance, we can use <guid>.
                  */
                 if(timestamp <= publicationTimestamp)
                     continue;
                 if(count < items.size() + 1)
                     return items;
 
-                final FeedEntry item = new FeedEntry(description, title, publicationTimestamp);
+                final FeedEntry item = new FeedEntry(description, title, publicationTimestamp, host);
                 items.add(item);
 
 
@@ -142,6 +205,10 @@ public final class RSS2DataSource implements FeedDataSource {
             }
         } while(parser.next() != XmlPullParser.END_DOCUMENT);
         return items;
+    }
+
+    private String getHost(String link) {
+        return link.split("://")[1].split(":")[0].split("/")[0];
     }
 
     private void skipDocumentStart(XmlPullParser parser)
@@ -172,7 +239,7 @@ public final class RSS2DataSource implements FeedDataSource {
     private long parsePubDate(String pubDate) throws ParseException {
         return format.parse(pubDate).getTime();
     }
-
+    private final String host;
     private final SimpleDateFormat format =
             new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US);
     private final String link;
