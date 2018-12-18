@@ -4,7 +4,6 @@ import android.util.Log;
 
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
-import io.reactivex.disposables.Disposables;
 import io.reactivex.schedulers.Schedulers;
 
 public final class FeedPresenter {
@@ -15,7 +14,7 @@ public final class FeedPresenter {
     }
 
     public void initialize(int initialFeedEntryCount) {
-        newsRepository
+        loadingDisposable = newsRepository
                 .retrieveLogos()
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(logos -> view.setDefaultNewsImages(logos),
@@ -25,31 +24,32 @@ public final class FeedPresenter {
 
     public void clear() {
         view = null;
-        disposable.dispose();
-        disposable = null;
+        loadingDisposable.dispose();
     }
-
     public void onNeedMoreNews(int count, long timestamp) {
-        if(disposable.isDisposed())
-            disposable.dispose();
+        loadingDisposable.dispose();
         loadMoreNews(count, timestamp);
     }
 
     private void loadMoreNews(int count, long timestamp) {
         view.showLoading();
-        disposable = newsRepository
+        loadingDisposable = newsRepository
                 .retrieveNewsSince(timestamp, count)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(news -> view.showNews(news),
+                .subscribe(news -> {
+                            view.hideLoading();
+                            view.showNews(news);
+                        },
                         error -> {
                             Log.e(Project.Tag, error.getMessage());
                             view.showErrorMessage();
-                        }, () -> view.hideLoading());
+                        });
     }
 
+
     private NewsRepository newsRepository;
-    private Disposable disposable;
+    private Disposable loadingDisposable;
 
     private FeedView view;
 }

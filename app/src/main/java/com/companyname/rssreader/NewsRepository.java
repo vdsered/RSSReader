@@ -25,7 +25,7 @@ public final class NewsRepository {
                          .toList().subscribeOn(Schedulers.io());
     }
 
-    public Observable<News> retrieveNewsSince(long timestamp, int count)
+    public Single<List<News>> retrieveNewsSince(long timestamp, int count)
     {
         final Observable<FeedEntry> habrObservable =
                 habr.retrieveEntriesSince(timestamp, count);
@@ -34,6 +34,7 @@ public final class NewsRepository {
 
         return Observable
                 .merge(habrObservable, meduzaObservable)
+                .retry()
                 .toSortedList(new TimeComparator())
                 .flatMapObservable(Observable::fromIterable)
                 .take(count)
@@ -46,7 +47,8 @@ public final class NewsRepository {
                     final int endIndex = Math.min(description.length(), MAX_CHARACTER_COUNT);
                     return new News(item.title, description.substring(0, endIndex),
                                     imageURL, item.sourceHost, item.timestamp);
-                });
+                })
+                .toList();
     }
 
     private String extractImageURL(String description) {

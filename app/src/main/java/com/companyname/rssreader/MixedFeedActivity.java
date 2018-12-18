@@ -57,8 +57,8 @@ public final class MixedFeedActivity extends AppCompatActivity implements FeedVi
     }
 
     @Override
-    public void showNews(News news) {
-        newsAdapter.addNews(Arrays.asList(news));
+    public void showNews(List<News> news) {
+        newsAdapter.addNews(news);
     }
 
     @Override
