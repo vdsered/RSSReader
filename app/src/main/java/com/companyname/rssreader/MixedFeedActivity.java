@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
@@ -48,12 +49,14 @@ public final class MixedFeedActivity extends AppCompatActivity implements FeedVi
     public void showLoading() {
         isLoading = true;
         loading.setVisibility(View.VISIBLE);
+        Log.d(Project.Tag, "Loading is shown on the feed");
     }
 
     @Override
     public void hideLoading() {
         isLoading = false;
         loading.setVisibility(View.INVISIBLE);
+        Log.d(Project.Tag, "Loading is hidden on the feed");
     }
 
     @Override

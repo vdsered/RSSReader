@@ -5,6 +5,7 @@ import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
 import android.text.format.DateFormat;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -62,6 +63,9 @@ public final class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.NewsView
             final int adapterPosition = newsViewHolder.getAdapterPosition();
             expansionStates.set(adapterPosition, !expansionStates.get(adapterPosition));
             notifyItemChanged(adapterPosition);
+            Log.d(Project.Tag,
+                    "News was clicked. The title is \"" + news.title +
+                            " \". The adapter position is " + adapterPosition);
         });
 
         final boolean expansionState = expansionStates.get(position);

@@ -38,6 +38,8 @@ public final class FeedPresenter {
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(news -> {
+                            Log.d(Project.Tag,
+                                    "News are loaded. The number of that is " + news.size());
                             view.hideLoading();
                             view.showNews(news);
                         },

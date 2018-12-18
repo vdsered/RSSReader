@@ -2,6 +2,7 @@ package com.companyname.rssreader;
 
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 
 import static com.companyname.rssreader.MixedFeedActivity.FEED_PAGE_SIZE;
 
@@ -32,6 +33,7 @@ final class NewsShortageListener extends RecyclerView.OnScrollListener {
         if (latestItemIsReached &&
             atLeastOneIsVisible &&
             totalItemCount >= FEED_PAGE_SIZE) {
+            Log.d(Project.Tag, "User has scrolled to the end of the list");
             feedPresenter
                     .onNeedMoreNews(FEED_PAGE_SIZE, newsAdapter.getEarliestTimestamp());
         }
