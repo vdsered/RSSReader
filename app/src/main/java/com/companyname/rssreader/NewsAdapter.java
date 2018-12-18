@@ -58,13 +58,10 @@ public final class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.NewsView
 
         newsViewHolder.description.setVisibility(View.GONE);
 
-        newsViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                final int adapterPosition = newsViewHolder.getAdapterPosition();
-                expansionStates.set(adapterPosition, !expansionStates.get(adapterPosition));
-                notifyItemChanged(adapterPosition);
-            }
+        newsViewHolder.itemView.setOnClickListener(v -> {
+            final int adapterPosition = newsViewHolder.getAdapterPosition();
+            expansionStates.set(adapterPosition, !expansionStates.get(adapterPosition));
+            notifyItemChanged(adapterPosition);
         });
 
         final boolean expansionState = expansionStates.get(position);
